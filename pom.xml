@@ -18,6 +18,11 @@
             <artifactId>java-symbol-solver-core</artifactId>
             <version>0.6.3</version>
         </dependency>
+        <dependency>
+            <groupId>org.xerial</groupId>
+            <artifactId>sqlite-jdbc</artifactId>
+            <version>3.7.2</version>
+        </dependency>
     </dependencies>
 
     <properties>

@@ -7,6 +7,7 @@ import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 
 import java.beans.Expression;
+import java.util.List;
 
 public class ApiCall {
     private String Call;
@@ -52,7 +53,15 @@ public class ApiCall {
         return new ApiCall(Util.getShortTypeName(type) + ".new");
     }
 
-
+    public static String createStringSequence(List<ApiCall> calls) {
+        StringBuilder sb = new StringBuilder();
+        for (ApiCall call : calls) {
+            sb.append(call.toString());
+            sb.append(' ');
+        }
+        sb.delete(sb.length() - 1, sb.length());
+        return sb.toString();
+    }
 
 
 }
