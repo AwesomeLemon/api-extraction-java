@@ -3,6 +3,8 @@ package com.github.awesomelemon;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.nodeTypes.NodeWithType;
 import com.github.javaparser.ast.type.Type;
+import com.github.javaparser.resolution.types.ResolvedType;
+import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 
 import java.beans.Expression;
 
@@ -42,7 +44,15 @@ public class ApiCall {
         return new ApiCall(className + ".new");
     }
 
-    public static <N extends Node, T extends Type> ApiCall  OfConstructor(NodeWithType<N,T> nodeWithType) {
+    public static <N extends Node, T extends Type> ApiCall OfConstructor(NodeWithType<N,T> nodeWithType) {
         return new ApiCall(Util.getShortTypeName(nodeWithType.getType()) + ".new");
     }
+
+    public static ApiCall OfConstructor(ResolvedType type) {
+        return new ApiCall(Util.getShortTypeName(type) + ".new");
+    }
+
+
+
+
 }
