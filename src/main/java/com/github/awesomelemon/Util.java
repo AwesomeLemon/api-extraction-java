@@ -28,6 +28,7 @@ public class Util {
     }
 
     private static String substringAfterLastDot(String fullType) {
-        return fullType.substring(fullType.lastIndexOf('.') + 1);
+        return fullType;
+//        return fullType.substring(fullType.lastIndexOf('.') + 1);
     }
 }
