@@ -1,5 +1,6 @@
 package com.github.awesomelemon;
 
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.body.Parameter;
 import com.github.javaparser.ast.comments.JavadocComment;
@@ -17,5 +18,11 @@ public class MethodCollector extends VoidVisitorAdapter<List<MethodDeclaration>>
         if (javadocComment.isPresent()) {
             collector.add(md);
         }
+    }
+
+    @Override
+    public void visit(ClassOrInterfaceDeclaration n, List<MethodDeclaration> collector) {
+        if (n.isInterface()) return;
+        super.visit(n, collector);
     }
 }
