@@ -2,6 +2,7 @@ package com.github.awesomelemon;
 
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
+import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.nodeTypes.NodeWithType;
 import com.github.javaparser.ast.stmt.IfStmt;
@@ -15,7 +16,9 @@ import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.model.resolution.SymbolReference;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
+import com.github.javaparser.symbolsolver.javaparsermodel.UnsolvedSymbolException;
 
+import java.lang.reflect.Field;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Optional;
@@ -48,8 +51,28 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
                 argument.accept(this, calls);
             }
         }
-        calls.add(ApiCall.OfConstructor(oc));
+        calls.add(ApiCall.OfConstructor(solveType(oc)));
         updateLastReturnType(oc);
+    }
+
+    private String solveType(Expression expression) {
+        try {
+            return JavaParserFacade.get(typeSolver).getType(expression).describe();
+        }
+        catch (UnsolvedSymbolException e) {
+            return getName(e);
+        }
+    }
+
+    private String getName(UnsolvedSymbolException e) {
+        try {
+            Field f = e.getClass().getDeclaredField("name"); //NoSuchFieldException
+            f.setAccessible(true);
+            return (String) f.get(e);
+        } catch (IllegalAccessException | NoSuchFieldException e1) {
+            e1.printStackTrace();
+        }
+        return null;
     }
 
     @Override
@@ -90,6 +113,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             if (scope.isPresent()) {
                 Expression scopeExpr = scope.get();
                 scopeExpr.accept(this, calls);//suppose that the type of this was written to lastReturnType
+                if (lastReturnType == null) return;
                 calls.add(ApiCall.OfMethodInvocation(lastReturnType, methodCallExpr.getNameAsString()));
                 methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
 
@@ -100,6 +124,8 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
                 //we're calling a local function. Recording its name is probably useless, so let's visit it instead
                 //on the other hand it seems complicated, so I'll postpone working on it for now
             }
+            //arguments can be easilly processed right now
+            methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
         }
         else {
             Optional<Expression> scope = methodCallExpr.getScope();
@@ -108,17 +134,31 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
                 scopeExpr.accept(this, calls);//suppose that the type of this was written to lastReturnType
 //            SymbolReference<? extends ResolvedValueDeclaration> scopeSymbol = JavaParserFacade.get(typeSolver).solve(scopeExpr);
 //            String s = scopeSymbol.toString();
+                if (lastReturnType == null) return;
                 String scopeType = lastReturnType;//it may be changed in the next call
                 methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
                 calls.add(ApiCall.OfMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
 
-                MethodUsage methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
-                String shortType = getShortTypeName(methodUsage);
+                MethodUsage methodUsage = null;
+                try {
+                    methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
+                }
+                catch (UnsolvedSymbolException e) {
+                    lastReturnType = null;
+                }
+                catch (RuntimeException e) {//this is neccessary, 'cause JavaParser can throw these when it fails
+                    lastReturnType = null;
+                }
+                if (methodUsage != null) {
+                    String shortType = getShortTypeName(methodUsage);
 //            System.out.println(shortType);
-                updateLastReturnType(shortType);
+                    updateLastReturnType(shortType);
+                }
             } else {
                 //we're calling a local function. Recording its name is probably useless, so let's visit it instead
                 //on the other hand it seems complicated, so I'll postpone working on it for now
+                //arguments can be easilly processed right now
+                methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
             }
         }
     }
@@ -155,9 +195,9 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             updateLastReturnType(n.getNameAsString());
             return;
         }
-        ResolvedType type = JavaParserFacade.get(typeSolver).getType(n);
+        String type = solveType(n);
         String shortTypeName = getShortTypeName(type);
-        System.out.println(shortTypeName);
+//        System.out.println(shortTypeName);
         updateLastReturnType(shortTypeName);
     }
 
@@ -205,7 +245,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             });
         });
 //        System.out.println(n.getScope().toString());
-        String type = JavaParserFacade.get(typeSolver).getType(n.getScope()).describe();
+        String type = solveType(n.getScope());
         calls.add(ApiCall.OfMethodInvocation(type, n.getIdentifier()));
         updateLastReturnType(type);
 //        ApiCall.OfMethodInvocation()
