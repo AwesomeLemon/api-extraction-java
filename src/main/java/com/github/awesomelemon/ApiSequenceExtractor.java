@@ -51,8 +51,14 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
                 argument.accept(this, calls);
             }
         }
-        calls.add(ApiCall.OfConstructor(solveType(oc)));
-        updateLastReturnType(oc);
+        String typeName = solveType(oc);
+        if (typeName == null) {
+            lastReturnType = null;
+        }
+        else {
+            calls.add(ApiCall.OfConstructor(typeName));
+            updateLastReturnType(oc);
+        }
     }
 
     private String solveType(Expression expression) {
@@ -61,6 +67,9 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
         }
         catch (UnsolvedSymbolException e) {
             return getName(e);
+        }
+        catch (UnsupportedOperationException e) {
+            return null;
         }
     }
 
@@ -94,7 +103,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
 
     @Override
     public void visit(StringLiteralExpr n, List<ApiCall> calls) {
-        updateLastReturnType("String");
+        updateLastReturnType("java.lang.String");
     }
 
     static final HashSet<String> streamApiFuns = new HashSet<>(List.of("anyMatch", "collect", "count", "distinct",
@@ -116,10 +125,20 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
                 if (lastReturnType == null) return;
                 calls.add(ApiCall.OfMethodInvocation(lastReturnType, methodCallExpr.getNameAsString()));
                 methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
-
-                MethodUsage methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
-                String shortType = getShortTypeName(methodUsage);
-                updateLastReturnType(shortType);
+                MethodUsage methodUsage = null;
+                try {
+                    methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
+                }
+                catch (UnsolvedSymbolException e) {
+                    lastReturnType = null;
+                }
+                catch (RuntimeException e) {//this is neccessary, 'cause JavaParser can throw these when it fails
+                    lastReturnType = null;
+                }
+                if (methodUsage != null) {
+                    String shortType = getShortTypeName(methodUsage);
+                    updateLastReturnType(shortType);
+                }
             } else {
                 //we're calling a local function. Recording its name is probably useless, so let's visit it instead
                 //on the other hand it seems complicated, so I'll postpone working on it for now
@@ -171,12 +190,12 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
 
     @Override
     public void visit(DoubleLiteralExpr n, List<ApiCall> calls) {
-        updateLastReturnType("Double");
+        updateLastReturnType("java.lang.Double");
     }
 
     @Override
     public void visit(IntegerLiteralExpr n, List<ApiCall> calls) {
-        updateLastReturnType("Integer");
+        updateLastReturnType("java.lang.Integer");
     }
 
     @Override
@@ -196,9 +215,14 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             return;
         }
         String type = solveType(n);
-        String shortTypeName = getShortTypeName(type);
+        if (type == null) {
+            lastReturnType = null;
+        }
+        else {
+            String shortTypeName = getShortTypeName(type);
 //        System.out.println(shortTypeName);
-        updateLastReturnType(shortTypeName);
+            updateLastReturnType(shortTypeName);
+        }
     }
 
     @Override
@@ -208,13 +232,13 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
 
     //useless, for I do not go inside constructors, and 'super' can be only there
     //also, unfinished
-    @Override
-    public void visit(SuperExpr n, List<ApiCall> calls) {
-        n.getClassExpr().ifPresent((l) -> {
-            l.accept(this, calls);
-        });
-        ResolvedType type = JavaParserFacade.get(typeSolver).getType(n);
-    }
+//    @Override
+//    public void visit(SuperExpr n, List<ApiCall> calls) {
+//        n.getClassExpr().ifPresent((l) -> {
+//            l.accept(this, calls);
+//        });
+//        ResolvedType type = JavaParserFacade.get(typeSolver).getType(n);
+//    }
 
     @Override
     public void visit(ThisExpr n, List<ApiCall> calls) {
@@ -246,8 +270,13 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
         });
 //        System.out.println(n.getScope().toString());
         String type = solveType(n.getScope());
-        calls.add(ApiCall.OfMethodInvocation(type, n.getIdentifier()));
-        updateLastReturnType(type);
+        if (type == null) {
+            lastReturnType = null;
+        }
+        else {
+            calls.add(ApiCall.OfMethodInvocation(type, n.getIdentifier()));
+            updateLastReturnType(type);
+        }
 //        ApiCall.OfMethodInvocation()
     }
 

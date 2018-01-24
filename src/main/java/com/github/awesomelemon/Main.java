@@ -3,6 +3,7 @@ package com.github.awesomelemon;
 import com.github.javaparser.*;
 import com.github.javaparser.ast.*;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.visitor.*;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
@@ -10,32 +11,48 @@ import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.JavaParserTypeSolver;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.ReflectionTypeSolver;
+import javafx.util.Pair;
 
 import java.io.File;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.sql.Connection;
+import java.sql.DriverManager;
+import java.sql.SQLException;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
 
 public class Main {
-    public static void main(String[] args) throws IOException {
+    public static void main(String[] args) throws IOException, SQLException {
         String javaParserTestMain = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src\\Main.java";
         String srcPath = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src";
         String retrofit = "D:\\DeepJavaReps\\retrofit";
         String retrofitDeeper = "D:\\DeepJavaReps\\retrofit\\retrofit\\src";
         String retrofitWayDeeper = "D:\\DeepJavaReps\\retrofit\\retrofit\\src\\main\\java";
-        List<Method> methods = ProcessRepo(retrofit);
-        ResultWriter resultWriter = new ResultWriter("D:\\YandexDisk\\DeepApiJava.sqlite");
-//        resultWriter.createMethodTable();
-        resultWriter.write(methods, -1);
+        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + databasePath);
+        RepoPathProvider repoPathProvider = new RepoPathProvider(connection);
+        Pair<String, Integer> repo = repoPathProvider.getNext();
+        ResultWriter resultWriter = new ResultWriter(connection);
+        while (repo != null) {
+            List<Method> methods = ProcessRepo(repo.getKey());
+            resultWriter.write(methods, repo.getValue());
+            repo = repoPathProvider.getNext();
+        }
     }
 
     private static List<Method> ProcessRepo(String repoPath) throws IOException {
         List<File> javaFiles1 = findJavaFiles(repoPath);
         List<Method> repoMethods = new ArrayList<>();
-        int methodCount = 0;
+//        int methodCount = 0;
         for (File javaFile : javaFiles1) {
+//            javaFile = new File("D:\\DeepApiReps\\sciruela_android\\src\\org\\apache\\bcel\\generic\\FieldGen.java");
             File rootDir = findProperRootDir(javaFile);
             CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
             combinedTypeSolver.add(new ReflectionTypeSolver());
@@ -56,18 +73,19 @@ public class Main {
             methodCollector.visit(cu, methods);
 
             ApiSequenceExtractor apiSequenceExtractor = new ApiSequenceExtractor(combinedTypeSolver);
-            ArrayList<ApiCall> apiCalls = new ArrayList<>();
-            if (methods.size() == 0) continue;
+//            if (methods.size() == 0) continue;
             System.out.println(javaFile);
 
             for (MethodDeclaration method : methods) {
+                ArrayList<ApiCall> apiCalls = new ArrayList<>();
                 apiSequenceExtractor.visit(method, apiCalls);
                 System.out.println(apiCalls);
                 if (apiCalls.size() == 0) continue;
 //                JavaParserFacade.get(combinedTypeSolver).get
                 repoMethods.add(new Method(method.getJavadocComment().get().getContent(), ApiCall.createStringSequence(apiCalls), getFullMethodName(method)));
             }
-            methodCount += methods.size();
+
+//            methodCount += methods.size();
         }
         return repoMethods;
     }
@@ -76,7 +94,13 @@ public class Main {
         String methodName = method.getNameAsString();
         Optional<Node> parentNode = method.getParentNode();
         if (parentNode.isPresent()) {
-            String parentName = ((ClassOrInterfaceDeclaration) parentNode.get()).getNameAsString();
+            String parentName = "";
+            if (parentNode.get() instanceof ClassOrInterfaceDeclaration) {
+                parentName = ((ClassOrInterfaceDeclaration) parentNode.get()).getNameAsString();
+            }
+            if (parentNode.get() instanceof EnumDeclaration) {
+                parentName = ((EnumDeclaration) parentNode.get()).getNameAsString();
+            }
             methodName = parentName + "." + methodName;
         }
         return methodName;
@@ -86,8 +110,9 @@ public class Main {
         File folderName = javaFile.getParentFile();
         while (!folderName.getName().equals("src") && !folderName.getName().equals("java")) {
             folderName = folderName.getParentFile();
+            if (folderName == null) break;
         }
-        return folderName;
+        return folderName == null ? javaFile.getParentFile() : folderName;
     }
 
     static List<String> findJavaFilePaths(String path) {
