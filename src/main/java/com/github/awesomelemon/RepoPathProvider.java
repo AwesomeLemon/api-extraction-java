@@ -8,7 +8,7 @@ import java.util.List;
 public class RepoPathProvider {
     private Connection connection;
 
-    public RepoPathProvider(Connection connection) {
+    RepoPathProvider(Connection connection) {
         this.connection = connection;
     }
 
@@ -19,6 +19,9 @@ public class RepoPathProvider {
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
             ResultSet resultSet = statement.executeQuery("SELECT id, path from Solution WHERE ProcessedTime ISNULL limit 1");
+            if (!resultSet.isBeforeFirst() ) {
+                return null;//result set is empty
+            }
             resultSet.next();
             int id = resultSet.getInt("id");
             String path = resultSet.getString("path");

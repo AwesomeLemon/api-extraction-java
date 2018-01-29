@@ -25,11 +25,7 @@ import java.util.Optional;
 
 public class Main {
     public static void main(String[] args) throws IOException, SQLException, InterruptedException {
-        String javaParserTestMain = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src\\Main.java";
-        String srcPath = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src";
-        String retrofit = "D:\\DeepJavaReps\\retrofit";
-        String retrofitDeeper = "D:\\DeepJavaReps\\retrofit\\retrofit\\src";
-        String retrofitWayDeeper = "D:\\DeepJavaReps\\retrofit\\retrofit\\src\\main\\java";
+//        String javaParserTestMain = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src\\Main.java";
 //        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
         String databasePath = "/media/jet/HDD/DeepApiJava.sqlite";
         try {
@@ -39,18 +35,12 @@ public class Main {
         }
         Connection connection = DriverManager.getConnection("jdbc:sqlite:" + databasePath);
         connection.setAutoCommit(false);
-//        Thread.sleep(10000);
-//        System.out.println("slept 1");
         RepoPathProvider repoPathProvider = new RepoPathProvider(connection);
         ResultWriter resultWriter = new ResultWriter(connection);
-//        Thread.sleep(10000);
-//        System.out.println("slept 2");
         while (true) {
             Pair<String, Integer> repo = repoPathProvider.getNext();
             while (repo != null) {
                 List<Method> methods = ProcessRepo(repo.getKey());
-//            Thread.sleep(10000);
-//            System.out.println("slept 3");
                 resultWriter.write(methods, repo.getValue());
                 deleteDir(new File(repo.getKey()));
                 repo = repoPathProvider.getNext();
@@ -62,12 +52,10 @@ public class Main {
     }
 
     private static List<Method> ProcessRepo(String repoPath) throws IOException {
-        List<File> javaFiles1 = findJavaFiles(repoPath);
+        List<File> javaFiles = findJavaFiles(repoPath);
         List<Method> repoMethods = new ArrayList<>();
-//        int methodCount = 0;
-        for (File javaFile : javaFiles1) {
+        for (File javaFile : javaFiles) {
             if (javaFile.isDirectory()) continue;//yep, there're dirs ending in '.java' E.g. in Wala
-//            javaFile = new File("D:\\DeepApiReps\\sciruela_android\\src\\org\\apache\\bcel\\generic\\FieldGen.java");
             File rootDir = findProperRootDir(javaFile);
             CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
             combinedTypeSolver.add(new ReflectionTypeSolver());
@@ -96,11 +84,11 @@ public class Main {
                 apiSequenceExtractor.visit(method, apiCalls);
                 System.out.println(apiCalls);
                 if (apiCalls.size() == 0) continue;
-//                JavaParserFacade.get(combinedTypeSolver).get
-                repoMethods.add(new Method(method.getJavadocComment().get().getContent(), ApiCall.createStringSequence(apiCalls), getFullMethodName(method)));
+                repoMethods.add(new Method(
+                        method.getJavadocComment().get().getContent(),
+                        ApiCall.createStringSequence(apiCalls),
+                        getFullMethodName(method)));
             }
-
-//            methodCount += methods.size();
         }
         return repoMethods;
     }
@@ -130,7 +118,7 @@ public class Main {
         return folderName == null ? javaFile.getParentFile() : folderName;
     }
 
-    static List<String> findJavaFilePaths(String path) {
+    private static List<String> findJavaFilePaths(String path) {
         File dir = new File(path);
         List<String> javaFiles = new ArrayList<>();
         for (File file : dir.listFiles()) {
@@ -154,7 +142,7 @@ public class Main {
         file.delete();
     }
 
-    static List<File> findJavaFiles(String path) {
+    private static List<File> findJavaFiles(String path) {
         File dir = new File(path);
         List<File> javaFiles = new ArrayList<>();
         File[] files = dir.listFiles();

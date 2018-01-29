@@ -8,7 +8,7 @@ import java.util.concurrent.Executors;
 public class ResultWriter {
     private Connection connection;
 
-    public ResultWriter(Connection connection) {
+    ResultWriter(Connection connection) {
         this.connection = connection;
     }
 
@@ -30,22 +30,20 @@ public class ResultWriter {
                 preparedStatement.close();
                 connection.commit();
             } catch (SQLException e) {
-                // if the error message is "out of memory",
-                // it probably means no database file is found
-                System.out.println(e.getMessage());
+                e.printStackTrace();
             }
         });
     }
 
-    public void markSolutionProcessed(int repoId) {
-            try {
-                Statement statement = connection.createStatement();
-                statement.executeUpdate("update Solution set ProcessedTime=CURRENT_TIMESTAMP where id = " + repoId);
-                statement.close();
-                connection.commit();
-            } catch (SQLException e) {
-                System.out.println(e.getMessage());
-            }
+    private void markSolutionProcessed(int repoId) {
+        try {
+            Statement statement = connection.createStatement();
+            statement.executeUpdate("update Solution set ProcessedTime=CURRENT_TIMESTAMP where id = " + repoId);
+            statement.close();
+            connection.commit();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     public void createMethodTable() {
@@ -54,13 +52,11 @@ public class ResultWriter {
             Statement statement = connection.createStatement();
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
-            statement.executeUpdate("create table Method (id integer primary key, name varchar, comment varchar, calls varchar, repo_id integer)");
+            statement.executeUpdate("CREATE TABLE Method (id INTEGER PRIMARY KEY, name VARCHAR, comment VARCHAR, calls VARCHAR, repo_id INTEGER)");
             statement.close();
             connection.commit();
-        }
-        catch(SQLException e)
-        {
-            System.err.println(e.getMessage());
+        } catch (SQLException e) {
+            e.printStackTrace();
         }
     }
 }
