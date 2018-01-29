@@ -30,7 +30,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
     private TypeSolver typeSolver;
     private String lastReturnType;
 
-    public ApiSequenceExtractor(TypeSolver typeSolver) {
+    ApiSequenceExtractor(TypeSolver typeSolver) {
         super();
         this.typeSolver = typeSolver;
     }
@@ -116,72 +116,49 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
 
     @Override
     public void visit(MethodCallExpr methodCallExpr, List<ApiCall> calls) {
-        //stream API calls should be processed differently
-        //in normal calls the execution order is scope-arguments-function
-        //however, if the function is a stream function, the execution goes scope-function-arguments
-        //arguably, for me Stream functions are irrelevant, 'cause they are separate from the functionality-related API calls
-        if (streamApiFuns.contains(methodCallExpr.getNameAsString())) {
-            Optional<Expression> scope = methodCallExpr.getScope();
-            if (scope.isPresent()) {
-                Expression scopeExpr = scope.get();
-                scopeExpr.accept(this, calls);//suppose that the type of this was written to lastReturnType
-                if (lastReturnType == null) return;
-                calls.add(ApiCall.OfMethodInvocation(lastReturnType, methodCallExpr.getNameAsString()));
+        Optional<Expression> scope = methodCallExpr.getScope();
+        if (scope.isPresent()) {
+            Expression scopeExpr = scope.get();
+            scopeExpr.accept(this, calls);//suppose that the type of this was written to lastReturnType
+            String scopeType = lastReturnType;
+            if (lastReturnType == null) return;
+
+            //stream API calls should be processed differently
+            //in normal calls the execution order is scope-arguments-function
+            //however, if the function is a stream function, the execution goes scope-function-arguments
+            //arguably, for me Stream functions are irrelevant, 'cause they are separate from the functionality-related API calls
+            if (streamApiFuns.contains(methodCallExpr.getNameAsString())) {
+                calls.add(ApiCall.OfMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
                 methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
-                MethodUsage methodUsage = null;
-                try {
-                    methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
-                }
-                catch (UnsolvedSymbolException e) {
-                    lastReturnType = null;
-                }
-                catch (RuntimeException e) {//this is neccessary, 'cause JavaParser can throw these when it fails
-                    lastReturnType = null;
-                }
-                if (methodUsage != null) {
-                    String shortType = getShortTypeName(methodUsage);
-                    updateLastReturnType(shortType);
-                }
-            } else {
-                //we're calling a local function. Recording its name is probably useless, so let's visit it instead
-                //on the other hand it seems complicated, so I'll postpone working on it for now
             }
+            else {
+                methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
+                calls.add(ApiCall.OfMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
+            }
+
+            updateLastReturnTypeOfMethod(methodCallExpr);
+        } else {
+            //we're calling a local function. Recording its name is probably useless, so let's visit it instead
+            //on the other hand it seems complicated, so I'll postpone working on it for now
             //arguments can be easilly processed right now
             methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
         }
-        else {
-            Optional<Expression> scope = methodCallExpr.getScope();
-            if (scope.isPresent()) {
-                Expression scopeExpr = scope.get();
-                scopeExpr.accept(this, calls);//suppose that the type of this was written to lastReturnType
-//            SymbolReference<? extends ResolvedValueDeclaration> scopeSymbol = JavaParserFacade.get(typeSolver).solve(scopeExpr);
-//            String s = scopeSymbol.toString();
-                if (lastReturnType == null) return;
-                String scopeType = lastReturnType;//it may be changed in the next call
-                methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
-                calls.add(ApiCall.OfMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
+    }
 
-                MethodUsage methodUsage = null;
-                try {
-                    methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
-                }
-                catch (UnsolvedSymbolException e) {
-                    lastReturnType = null;
-                }
-                catch (RuntimeException e) {//this is neccessary, 'cause JavaParser can throw these when it fails
-                    lastReturnType = null;
-                }
-                if (methodUsage != null) {
-                    String shortType = getShortTypeName(methodUsage);
-//            System.out.println(shortType);
-                    updateLastReturnType(shortType);
-                }
-            } else {
-                //we're calling a local function. Recording its name is probably useless, so let's visit it instead
-                //on the other hand it seems complicated, so I'll postpone working on it for now
-                //arguments can be easilly processed right now
-                methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
-            }
+    private void updateLastReturnTypeOfMethod(MethodCallExpr methodCallExpr) {
+        MethodUsage methodUsage = null;
+        try {
+            methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
+        }
+        catch (UnsolvedSymbolException e) {
+            lastReturnType = null;
+        }
+        catch (RuntimeException e) {//this is neccessary, 'cause JavaParser can throw these when it fails
+            lastReturnType = null;
+        }
+        if (methodUsage != null) {
+            String shortType = getShortTypeName(methodUsage);
+            updateLastReturnType(shortType);
         }
     }
 
