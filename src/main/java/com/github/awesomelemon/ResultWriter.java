@@ -17,10 +17,9 @@ public class ResultWriter {
         ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.submit(() -> {
             try {
-                // create a database connection
-                connection.setAutoCommit(false);
-                PreparedStatement preparedStatement = connection.prepareStatement("insert into Method(name, comment, calls, repo_id) values(?, ?, ?, " + repoId + ")");
-                preparedStatement.setQueryTimeout(30);  // set timeout to 30 sec.
+                PreparedStatement preparedStatement = connection.prepareStatement(
+                        "insert into Method(name, comment, calls, solution_id) values(?, ?, ?, " + repoId + ")");
+                preparedStatement.setQueryTimeout(30);
                 for (Method method : methods) {
                     preparedStatement.setString(1, method.getName());
                     preparedStatement.setString(2, method.getJavadocComment());
@@ -28,6 +27,7 @@ public class ResultWriter {
                     preparedStatement.addBatch();
                 }
                 preparedStatement.executeBatch();
+                preparedStatement.close();
                 connection.commit();
             } catch (SQLException e) {
                 // if the error message is "out of memory",
@@ -41,9 +41,9 @@ public class ResultWriter {
             try {
                 Statement statement = connection.createStatement();
                 statement.executeUpdate("update Solution set ProcessedTime=CURRENT_TIMESTAMP where id = " + repoId);
+                statement.close();
+                connection.commit();
             } catch (SQLException e) {
-                // if the error message is "out of memory",
-                // it probably means no database file is found
                 System.out.println(e.getMessage());
             }
     }
@@ -55,11 +55,11 @@ public class ResultWriter {
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
             statement.executeUpdate("create table Method (id integer primary key, name varchar, comment varchar, calls varchar, repo_id integer)");
+            statement.close();
+            connection.commit();
         }
         catch(SQLException e)
         {
-            // if the error message is "out of memory",
-            // it probably means no database file is found
             System.err.println(e.getMessage());
         }
     }

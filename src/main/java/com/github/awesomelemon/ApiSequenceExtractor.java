@@ -71,6 +71,9 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
         catch (UnsupportedOperationException e) {
             return null;
         }
+        catch (RuntimeException e ) {
+            return null;
+        }
     }
 
     private String getName(UnsolvedSymbolException e) {

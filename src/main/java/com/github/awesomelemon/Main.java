@@ -24,27 +24,41 @@ import java.util.List;
 import java.util.Optional;
 
 public class Main {
-    public static void main(String[] args) throws IOException, SQLException {
+    public static void main(String[] args) throws IOException, SQLException, InterruptedException {
         String javaParserTestMain = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src\\Main.java";
         String srcPath = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src";
         String retrofit = "D:\\DeepJavaReps\\retrofit";
         String retrofitDeeper = "D:\\DeepJavaReps\\retrofit\\retrofit\\src";
         String retrofitWayDeeper = "D:\\DeepJavaReps\\retrofit\\retrofit\\src\\main\\java";
-        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
+//        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
+        String databasePath = "/media/jet/HDD/DeepApiJava.sqlite";
         try {
             Class.forName("org.sqlite.JDBC");
         } catch (ClassNotFoundException e) {
             e.printStackTrace();
         }
         Connection connection = DriverManager.getConnection("jdbc:sqlite:" + databasePath);
+        connection.setAutoCommit(false);
+//        Thread.sleep(10000);
+//        System.out.println("slept 1");
         RepoPathProvider repoPathProvider = new RepoPathProvider(connection);
-        Pair<String, Integer> repo = repoPathProvider.getNext();
         ResultWriter resultWriter = new ResultWriter(connection);
-        while (repo != null) {
-            List<Method> methods = ProcessRepo(repo.getKey());
-            resultWriter.write(methods, repo.getValue());
-            repo = repoPathProvider.getNext();
+//        Thread.sleep(10000);
+//        System.out.println("slept 2");
+        while (true) {
+            Pair<String, Integer> repo = repoPathProvider.getNext();
+            while (repo != null) {
+                List<Method> methods = ProcessRepo(repo.getKey());
+//            Thread.sleep(10000);
+//            System.out.println("slept 3");
+                resultWriter.write(methods, repo.getValue());
+                deleteDir(new File(repo.getKey()));
+                repo = repoPathProvider.getNext();
+            }
+            System.out.println("Sleeping...");
+            Thread.sleep(100000);
         }
+
     }
 
     private static List<Method> ProcessRepo(String repoPath) throws IOException {
@@ -52,6 +66,7 @@ public class Main {
         List<Method> repoMethods = new ArrayList<>();
 //        int methodCount = 0;
         for (File javaFile : javaFiles1) {
+            if (javaFile.isDirectory()) continue;//yep, there're dirs ending in '.java' E.g. in Wala
 //            javaFile = new File("D:\\DeepApiReps\\sciruela_android\\src\\org\\apache\\bcel\\generic\\FieldGen.java");
             File rootDir = findProperRootDir(javaFile);
             CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
@@ -129,10 +144,22 @@ public class Main {
         return javaFiles;
     }
 
+    private static void deleteDir(File file) {
+        File[] contents = file.listFiles();
+        if (contents != null) {
+            for (File f : contents) {
+                deleteDir(f);
+            }
+        }
+        file.delete();
+    }
+
     static List<File> findJavaFiles(String path) {
         File dir = new File(path);
         List<File> javaFiles = new ArrayList<>();
-        for (File file : dir.listFiles()) {
+        File[] files = dir.listFiles();
+        if (files == null) return new ArrayList<>();
+        for (File file : files) {
             if (file.isDirectory()) {
                 javaFiles.addAll(findJavaFiles(file.getAbsolutePath()));
             }

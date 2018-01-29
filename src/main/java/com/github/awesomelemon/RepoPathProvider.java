@@ -22,13 +22,14 @@ public class RepoPathProvider {
             resultSet.next();
             int id = resultSet.getInt("id");
             String path = resultSet.getString("path");
+            resultSet.close();
+            statement.close();
+            connection.commit();
             return new Pair<>(path, id);
         }
         catch(SQLException e)
         {
-            // if the error message is "out of memory",
-            // it probably means no database file is found
-            System.out.println(e.getMessage());
+            e.printStackTrace();
         }
         return null;
     }
