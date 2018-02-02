@@ -56,6 +56,19 @@ public class Main {
         List<Method> repoMethods = new ArrayList<>();
         for (File javaFile : javaFiles) {
             if (javaFile.isDirectory()) continue;//yep, there're dirs ending in '.java' E.g. in Wala
+//            if (javaFile.getName().equals(
+//                    "Editor.java")
+//                    || javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/core/java/android/widget/")
+//                    || javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/core/java/com/android/internal/view")
+//                    || javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/core/java/com/android/internal/widget")
+//                    || javaFile.getName().equals("PackageInstaller.java")
+//                    || javaFile.getName().equals("FastScroller.java")
+//                    || javaFile.getName().equals("LauncherApps.java")) {
+//                continue;//stack overflow in java parser. 1gb stack is not enough
+//            }
+//            if (javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/media/java/android/media/AudioManager.java")) {
+//                break;
+//            }
             File rootDir = findProperRootDir(javaFile);
             CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
             combinedTypeSolver.add(new ReflectionTypeSolver());
@@ -81,8 +94,14 @@ public class Main {
 
             for (MethodDeclaration method : methods) {
                 ArrayList<ApiCall> apiCalls = new ArrayList<>();
-                apiSequenceExtractor.visit(method, apiCalls);
-                System.out.println(apiCalls);
+                try {
+                    apiSequenceExtractor.visit(method, apiCalls);
+                }
+                catch (StackOverflowError | OutOfMemoryError e) {// I'm in no mood to debug Javaparser
+                    System.gc();
+                    System.out.println("Stack overflowed. Or memory. Deal with it.");
+                }
+//                System.out.println(apiCalls);
                 if (apiCalls.size() == 0) continue;
                 repoMethods.add(new Method(
                         method.getJavadocComment().get().getContent(),

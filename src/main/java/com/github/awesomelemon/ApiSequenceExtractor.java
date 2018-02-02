@@ -190,6 +190,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
     @Override
     public void visit(NameExpr n, List<ApiCall> calls) {
         if (Character.isUpperCase(n.getNameAsString().charAt(0))) {
+
             //probably this is type, not a variable name.
             updateLastReturnType(n.getNameAsString());
             return;
@@ -222,7 +223,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
 
     @Override
     public void visit(ThisExpr n, List<ApiCall> calls) {
-        updateLastReturnType(JavaParserFacade.get(typeSolver).getType(n).describe());
+        updateLastReturnType(solveType(n));
     }
 
     //now useless, 'cause I get variable type from the left of the expression, and this allows me to get it from the right.

@@ -7,6 +7,8 @@ import java.util.concurrent.Executors;
 
 public class ResultWriter {
     private Connection connection;
+    private static ExecutorService executor = Executors.newSingleThreadExecutor();
+
 
     ResultWriter(Connection connection) {
         this.connection = connection;
@@ -14,7 +16,6 @@ public class ResultWriter {
 
     public void write(List<Method> methods, int repoId) {
         markSolutionProcessed(repoId);
-        ExecutorService executor = Executors.newSingleThreadExecutor();
         executor.submit(() -> {
             try {
                 PreparedStatement preparedStatement = connection.prepareStatement(

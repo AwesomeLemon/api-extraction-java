@@ -20,6 +20,9 @@ public class RepoPathProvider {
 
             ResultSet resultSet = statement.executeQuery("SELECT id, path from Solution WHERE ProcessedTime ISNULL limit 1");
             if (!resultSet.isBeforeFirst() ) {
+                resultSet.close();
+                statement.close();
+                connection.commit();
                 return null;//result set is empty
             }
             resultSet.next();
