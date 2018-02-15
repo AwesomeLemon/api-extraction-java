@@ -15,7 +15,6 @@ public class ResultWriter {
     }
 
     public void write(List<Method> methods, int repoId) {
-        markSolutionProcessed(repoId);
         executor.submit(() -> {
             try {
                 PreparedStatement preparedStatement = connection.prepareStatement(
@@ -36,7 +35,7 @@ public class ResultWriter {
         });
     }
 
-    private void markSolutionProcessed(int repoId) {
+    void markSolutionProcessed(int repoId) {
         try {
             Statement statement = connection.createStatement();
             statement.executeUpdate("update Solution set ProcessedTime=CURRENT_TIMESTAMP where id = " + repoId);

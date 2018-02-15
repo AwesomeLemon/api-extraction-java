@@ -18,16 +18,20 @@ import java.io.FileInputStream;
 import java.io.IOException;
 import java.sql.Connection;
 import java.sql.DriverManager;
+import java.sql.PreparedStatement;
 import java.sql.SQLException;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.Collectors;
 
 public class Main {
     public static void main(String[] args) throws IOException, SQLException, InterruptedException {
+//        storeEdingburghJavaDataset();
 //        String javaParserTestMain = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src\\Main.java";
-//        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
-        String databasePath = "/media/jet/HDD/DeepApiJava.sqlite";
+        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
+//        String databasePath = "/media/jet/HDD/DeepApiJava.sqlite";
         try {
             Class.forName("org.sqlite.JDBC");
         } catch (ClassNotFoundException e) {
@@ -40,6 +44,7 @@ public class Main {
         while (true) {
             Pair<String, Integer> repo = repoPathProvider.getNext();
             while (repo != null) {
+                resultWriter.markSolutionProcessed(repo.getValue());
                 List<Method> methods = ProcessRepo(repo.getKey());
                 resultWriter.write(methods, repo.getValue());
                 deleteDir(new File(repo.getKey()));
@@ -49,6 +54,34 @@ public class Main {
             Thread.sleep(100000);
         }
 
+    }
+
+    private static void storeEdingburghJavaDataset() throws SQLException {
+        final String datasetPath="D:\\Users\\Alexander\\Downloads\\java_projects\\java_projects";
+        List<String> dirPaths = Arrays.stream(new File(datasetPath).listFiles()).map(dirFile -> dirFile.getAbsolutePath()).collect(Collectors.toList());
+
+        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
+        try {
+            Class.forName("org.sqlite.JDBC");
+        } catch (ClassNotFoundException e) {
+            e.printStackTrace();
+        }
+        Connection connection = DriverManager.getConnection("jdbc:sqlite:" + databasePath);
+        connection.setAutoCommit(false);
+        try {
+            PreparedStatement preparedStatement = connection.prepareStatement(
+                    "insert into Solution(Path) values (?)");
+            preparedStatement.setQueryTimeout(30);
+            for (String dirPath : dirPaths) {
+                preparedStatement.setString(1, dirPath);
+                preparedStatement.addBatch();
+            }
+            preparedStatement.executeBatch();
+            preparedStatement.close();
+            connection.commit();
+        } catch (SQLException e) {
+            e.printStackTrace();
+        }
     }
 
     private static List<Method> ProcessRepo(String repoPath) throws IOException {
@@ -75,7 +108,8 @@ public class Main {
             combinedTypeSolver.add(new JavaParserTypeSolver(rootDir));
 
             ParserConfiguration parserConfiguration = new ParserConfiguration()
-                    .setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver));
+                    .setSymbolResolver(new JavaSymbolSolver(combinedTypeSolver))
+                    .setLexicalPreservationEnabled(false);
             JavaParser parser = new JavaParser(parserConfiguration);
             Optional<CompilationUnit> maybeCu = parser.parse(
                     ParseStart.COMPILATION_UNIT,
@@ -108,6 +142,7 @@ public class Main {
                         ApiCall.createStringSequence(apiCalls),
                         getFullMethodName(method)));
             }
+            JavaParserFacade.clearInstances();
         }
         return repoMethods;
     }
