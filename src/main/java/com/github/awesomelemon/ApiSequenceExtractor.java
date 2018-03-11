@@ -3,6 +3,7 @@ package com.github.awesomelemon;
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
+import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.nodeTypes.NodeWithType;
 import com.github.javaparser.ast.stmt.IfStmt;
@@ -66,12 +67,17 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             return JavaParserFacade.get(typeSolver).getType(expression).describe();
         }
         catch (UnsolvedSymbolException e) {
+//            System.out.println(1);
+//            e.printStackTrace();
             return getName(e);
         }
         catch (UnsupportedOperationException e) {
+//            System.out.println(2);
+//            e.printStackTrace();
             return null;
         }
         catch (RuntimeException e ) {
+//            System.out.println(3);
             return null;
         }
     }
@@ -148,15 +154,19 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
     private void updateLastReturnTypeOfMethod(MethodCallExpr methodCallExpr) {
         MethodUsage methodUsage = null;
         try {
+//            System.out.println("updateLastReturnType: " + methodCallExpr.getName());
             methodUsage = JavaParserFacade.get(typeSolver).solveMethodAsUsage(methodCallExpr);
         }
         catch (UnsolvedSymbolException e) {
+//            System.out.println(4);
             lastReturnType = null;
         }
         catch (RuntimeException e) {//this is neccessary, 'cause JavaParser can throw these when it fails
+//            System.out.println(5);
             lastReturnType = null;
         }
         if (methodUsage != null) {
+//            System.out.println(6);
             String shortType = getShortTypeName(methodUsage);
             updateLastReturnType(shortType);
         }
@@ -195,6 +205,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             updateLastReturnType(n.getNameAsString());
             return;
         }
+//        System.out.println(n.getName());
         String type = solveType(n);
         if (type == null) {
             lastReturnType = null;
@@ -261,7 +272,21 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
 //        ApiCall.OfMethodInvocation()
     }
 
-//    @Override
+    //I hoped that processing body last would solve StackOverflow, since parameters would already
+    //have been solved. Unfortunately, no.
+    @Override
+    public void visit(final MethodDeclaration n, final List<ApiCall> calls) {
+        n.getType().accept(this, calls);
+        n.getName().accept(this, calls);
+        n.getParameters().forEach(p -> p.accept(this, calls));
+        n.getReceiverParameter().ifPresent(l -> l.accept(this, calls));
+        n.getThrownExceptions().forEach(p -> p.accept(this, calls));
+        n.getTypeParameters().forEach(p -> p.accept(this, calls));
+        n.getAnnotations().forEach(p -> p.accept(this, calls));
+        n.getComment().ifPresent(l -> l.accept(this, calls));
+        n.getBody().ifPresent(l -> l.accept(this, calls));
+    }
+    //    @Override
 //    public void visit(ObjectCreationExpr n, List<ApiCall> calls) {
 //        if (n.getAnonymousClassBody().isPresent()) return;
 //        n.getScope().ifPresent((l) -> {
@@ -270,4 +295,26 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
 //        });
 //        n.getType().accept(this, calls);
 //    }
+
+    @Override
+    public void visit(final FieldAccessExpr n, final List<ApiCall> arg) {
+//        System.out.println(n.getName());
+        Expression scope = n.getScope();
+//        if (scope instanceof NameExpr) {
+//            NameExpr scopeName = (NameExpr) scope;
+//            if (scopeName.getName().asString().equals(n.getName().asString())) {
+//                return;
+//            }
+//        }
+//        if (scope instanceof FieldAccessExpr) {
+//            String scopeField = ((FieldAccessExpr) scope).getScope().toString();
+//            if (scopeField.equals(n.getName().asString())) {
+//                return;
+//            }
+//        }
+        n.getName().accept(this, arg);
+        scope.accept(this, arg);
+        n.getTypeArguments().ifPresent(l -> l.forEach(v -> v.accept(this, arg)));
+        n.getComment().ifPresent(l -> l.accept(this, arg));
+    }
 }
