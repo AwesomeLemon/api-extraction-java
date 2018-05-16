@@ -1,4 +1,4 @@
-package com.github.awesomelemon;
+package com.github.awesomelemon.database;
 
 import javafx.util.Pair;
 
@@ -8,7 +8,7 @@ import java.util.List;
 public class RepoPathProvider {
     private Connection connection;
 
-    RepoPathProvider(Connection connection) {
+    public RepoPathProvider(Connection connection) {
         this.connection = connection;
     }
 

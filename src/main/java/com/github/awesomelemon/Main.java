@@ -1,12 +1,12 @@
 package com.github.awesomelemon;
 
-import com.github.arunsoman.ipc.mappedbus.MappedBusWriter;
+import com.github.awesomelemon.database.RepoPathProvider;
+import com.github.awesomelemon.database.ResultWriter;
 import com.github.javaparser.*;
 import com.github.javaparser.ast.*;
 import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.EnumDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
-import com.github.javaparser.ast.visitor.*;
 import com.github.javaparser.symbolsolver.JavaSymbolSolver;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
 import com.github.javaparser.symbolsolver.resolution.typesolvers.CombinedTypeSolver;
@@ -25,11 +25,7 @@ import java.sql.Connection;
 import java.sql.DriverManager;
 import java.sql.PreparedStatement;
 import java.sql.SQLException;
-import java.text.SimpleDateFormat;
 import java.util.*;
-import java.util.logging.ConsoleHandler;
-import java.util.logging.Level;
-import java.util.logging.Logger;
 import java.util.stream.Collectors;
 
 public class Main {
@@ -420,46 +416,6 @@ public class Main {
         }
     }
 
-    public static void oldMain() throws Exception {
-        String myFile = "D:\\DeepJavaReps\\retrofit\\samples\\src\\main\\java\\com\\example\\retrofit\\ChunkingConverter.java";
-        CompilationUnit cu = JavaParser.parse(new FileInputStream(myFile));
-//        TypeSolver typeSolver = new CombinedTypeSolver();
-//        ParserConfiguration parserConfiguration =
-//                new ParserConfiguration().setSymbolResolver(
-//                        new JavaSymbolSolver(typeSolver));
-//        JavaParser parser = new JavaParser(parserConfiguration);
-//        CompilationUnit cu =
-//                parser.parse(ParseStart.COMPILATION_UNIT,
-//                        new StreamProvider(new FileInputStream(myFile)))
-//                        .getResult().get();
-
-        VoidVisitor<List<String>> methodNameVisitor = new MethodNamePrinter();
-        ArrayList<String> methodNames = new ArrayList<>();
-//        methodNameVisitor.visit(cu, methodNames);
-//        System.out.println(methodNames);
-        MethodCollector methodCollector = new MethodCollector();
-        ArrayList<MethodDeclaration> methods = new ArrayList<>();
-        methodCollector.visit(cu, methods);
-        for (MethodDeclaration method : methods) {
-            methodNameVisitor.visit(method, methodNames);
-        }
-        System.out.println(methodNames);
-
-//        TypeSolver typeSolver = new CombinedTypeSolver();
-//        ParserConfiguration parserConfiguration =
-//                new ParserConfiguration().setSymbolResolver(
-//                        new JavaSymbolSolver(typeSolver));
-//        JavaParser parser = new JavaParser(parserConfiguration);
-//        CompilationUnit compilationUnit =
-//                parser.parse(ParseStart.COMPILATION_UNIT,
-//                        new StreamProvider(new FileInputStream(myFile)))
-//                        .getResult().get();
-//        List<Node> childNodes = cu.getChildNodes();
-//
-//        Type type = JavaParserFacade.get(typeSolver).getType(childNodes.get(21).getChildNodes().get(5).getChildNodes().get(5).getChildNodes().get(0).getChildNodes().get(0).getChildNodes().get(0).getChildNodes().get(2));
-//        System.out.println(childNodes);
-
-    }
 
 
     private static void testStupidDotJavaFolderFail() throws IOException {

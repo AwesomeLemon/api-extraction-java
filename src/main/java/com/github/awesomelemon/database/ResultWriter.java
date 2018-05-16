@@ -1,4 +1,6 @@
-package com.github.awesomelemon;
+package com.github.awesomelemon.database;
+
+import com.github.awesomelemon.Method;
 
 import java.sql.*;
 import java.util.List;
@@ -10,7 +12,7 @@ public class ResultWriter {
     private static ExecutorService executor = Executors.newSingleThreadExecutor();
 
 
-    ResultWriter(Connection connection) {
+    public ResultWriter(Connection connection) {
         this.connection = connection;
     }
 
@@ -35,7 +37,7 @@ public class ResultWriter {
         });
     }
 
-    void markSolutionProcessed(int repoId) {
+    public void markSolutionProcessed(int repoId) {
         try {
             Statement statement = connection.createStatement();
             statement.executeUpdate("update Solution set ProcessedTime=CURRENT_TIMESTAMP where id = " + repoId);
