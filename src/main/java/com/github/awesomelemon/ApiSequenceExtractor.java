@@ -2,7 +2,6 @@ package com.github.awesomelemon;
 
 import com.github.javaparser.ast.Node;
 import com.github.javaparser.ast.NodeList;
-import com.github.javaparser.ast.body.ClassOrInterfaceDeclaration;
 import com.github.javaparser.ast.body.MethodDeclaration;
 import com.github.javaparser.ast.expr.*;
 import com.github.javaparser.ast.nodeTypes.NodeWithType;
@@ -12,10 +11,7 @@ import com.github.javaparser.ast.stmt.WhileStmt;
 import com.github.javaparser.ast.type.Type;
 import com.github.javaparser.ast.visitor.VoidVisitorAdapter;
 import com.github.javaparser.resolution.MethodUsage;
-import com.github.javaparser.resolution.declarations.ResolvedValueDeclaration;
-import com.github.javaparser.resolution.types.ResolvedType;
 import com.github.javaparser.symbolsolver.javaparsermodel.JavaParserFacade;
-import com.github.javaparser.symbolsolver.model.resolution.SymbolReference;
 import com.github.javaparser.symbolsolver.model.resolution.TypeSolver;
 import com.github.javaparser.symbolsolver.javaparsermodel.UnsolvedSymbolException;
 
@@ -25,7 +21,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.Stack;
 
-import static com.github.awesomelemon.Util.getShortTypeName;
+import static com.github.awesomelemon.Util.getTypeName;
 
 public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
     private TypeSolver typeSolver;
@@ -57,7 +53,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             lastReturnType = null;
         }
         else {
-            calls.add(ApiCall.OfConstructor(typeName));
+            calls.add(ApiCall.ofConstructor(typeName));
             updateLastReturnType(oc);
         }
     }
@@ -99,7 +95,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
         tryStmt.getResources().forEach(resource -> {
             resource.ifVariableDeclarationExpr(variableDeclarationExpr -> {
                 variableDeclarationExpr.getVariables().forEach(v -> {
-                    resourcesToClose.push(ApiCall.OfMethodInvocation(v, "close"));
+                    resourcesToClose.push(ApiCall.ofMethodInvocation(v, "close"));
                 });
             });
             resource.accept(this, calls);
@@ -134,18 +130,18 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             //however, if the function is a stream function, the execution goes scope-function-arguments
             //arguably, for me Stream functions are irrelevant, 'cause they are separate from the functionality-related API calls
             if (streamApiFuns.contains(methodCallExpr.getNameAsString())) {
-                calls.add(ApiCall.OfMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
+                calls.add(ApiCall.ofMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
                 methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
             }
             else {
                 methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
-                calls.add(ApiCall.OfMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
+                calls.add(ApiCall.ofMethodInvocation(scopeType, methodCallExpr.getNameAsString()));
             }
 
             updateLastReturnTypeOfMethod(methodCallExpr);
         } else {
             //we're calling a local function. Recording its name is probably useless, so let's visit it instead
-            //on the other hand it seems complicated, so I'll postpone working on it for now
+            //but the original paper didn't visit those, so I'll postpone working on it for now
             //arguments can be easilly processed right now
             methodCallExpr.getArguments().forEach(arg -> arg.accept(this, calls));
         }
@@ -167,7 +163,7 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
         }
         if (methodUsage != null) {
 //            System.out.println(6);
-            String shortType = getShortTypeName(methodUsage);
+            String shortType = Util.getTypeName(methodUsage);
             updateLastReturnType(shortType);
         }
     }
@@ -211,15 +207,14 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             lastReturnType = null;
         }
         else {
-            String shortTypeName = getShortTypeName(type);
 //        System.out.println(shortTypeName);
-            updateLastReturnType(shortTypeName);
+            updateLastReturnType(type);
         }
     }
 
     @Override
     public void visit(Name n, List<ApiCall> calls) {
-        updateLastReturnType(getShortTypeName(n.asString()));
+        updateLastReturnType(n.asString());
     }
 
     //useless, for I do not go inside constructors, and 'super' can be only there
@@ -266,10 +261,10 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
             lastReturnType = null;
         }
         else {
-            calls.add(ApiCall.OfMethodInvocation(type, n.getIdentifier()));
+            calls.add(ApiCall.ofMethodInvocation(type, n.getIdentifier()));
             updateLastReturnType(type);
         }
-//        ApiCall.OfMethodInvocation()
+//        ApiCall.ofMethodInvocation()
     }
 
     //I hoped that processing body last would solve StackOverflow, since parameters would already
@@ -286,32 +281,10 @@ public class ApiSequenceExtractor extends VoidVisitorAdapter<List<ApiCall>> {
         n.getComment().ifPresent(l -> l.accept(this, calls));
         n.getBody().ifPresent(l -> l.accept(this, calls));
     }
-    //    @Override
-//    public void visit(ObjectCreationExpr n, List<ApiCall> calls) {
-//        if (n.getAnonymousClassBody().isPresent()) return;
-//        n.getScope().ifPresent((l) -> {
-//            //I don't really know why anyone would write "new a().new b()", but whatever.
-//            l.accept(this, calls);
-//        });
-//        n.getType().accept(this, calls);
-//    }
 
     @Override
     public void visit(final FieldAccessExpr n, final List<ApiCall> arg) {
-//        System.out.println(n.getName());
         Expression scope = n.getScope();
-//        if (scope instanceof NameExpr) {
-//            NameExpr scopeName = (NameExpr) scope;
-//            if (scopeName.getName().asString().equals(n.getName().asString())) {
-//                return;
-//            }
-//        }
-//        if (scope instanceof FieldAccessExpr) {
-//            String scopeField = ((FieldAccessExpr) scope).getScope().toString();
-//            if (scopeField.equals(n.getName().asString())) {
-//                return;
-//            }
-//        }
         n.getName().accept(this, arg);
         scope.accept(this, arg);
         n.getTypeArguments().ifPresent(l -> l.forEach(v -> v.accept(this, arg)));

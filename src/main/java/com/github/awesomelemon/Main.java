@@ -29,18 +29,10 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 public class Main {
-    public static void main(String[] args) throws IOException, SQLException, InterruptedException {
-//        List<Method> methods1 = ProcessFile("/media/jet/HDD/DeepApiJava/treejames/SmartAndroid/Smart_Client/app/libs/guava-master/guava/src/com/google/common/reflect/TypeToken.java");
-//        List<Method> methods1 = ProcessFile("/media/jet/HDD/DeepApiJava/zephiK/android_frameworks_base/rs/java/android/renderscript/Allocation.java");
-//        List<Method> methods1 = ProcessFile("/media/jet/HDD/DeepApiJava/michael-rapp/AndroidAdapters/library/src/main/java/de/mrapp/android/adapter/expandablelist/selectable/SingleChoiceExpandableListAdapterImplementation.java");
-//        List<Method> methods1 = ProcessFile("/media/jet/HDD/DeepApiJava/KNightWeng/TAkeMeHome/app/src/main/java/com/knightweng/android/takemehome/common/ApiUtils.java");
-//        List<Method> methods1 = ProcessFile("/media/jet/HDD/DeepApiJava/liuyq/TerminalIDE/src/com/sun/tools/javac/comp/Attr.java");
-//        if (true) return;
-//        storeEdingburghJavaDataset();
-//        String javaParserTestMain = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src\\Main.java";
-        String javaParserTestMain = "/home/jet/JavaParserTest";
-//        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
-        String databasePath = "/media/jet/HDD/DeepApiJava (1).sqlite";
+
+    private static final String databasePath = "/media/jet/HDD/DeepApiJava (1).sqlite";
+
+    public static void main(String[] args) throws SQLException, InterruptedException {
         try {
             Class.forName("org.sqlite.JDBC");
         } catch (ClassNotFoundException e) {
@@ -51,14 +43,19 @@ public class Main {
         RepoPathProvider repoPathProvider = new RepoPathProvider(connection);
         ResultWriter resultWriter = new ResultWriter(connection);
         int cnt = 0;
+        //as repos will be downloading, repo path provider will give paths to them
         while (true) {
             Pair<String, Integer> repo = repoPathProvider.getNext();
 
             while (repo != null) {
                 final String repoPath = repo.getKey();
                 final Integer repoId = repo.getValue();
-                //                System.out.println(new SimpleDateFormat("yyyyMMdd_HHmmss").format(Calendar.getInstance().getTime()));
                 resultWriter.markSolutionProcessed(repoId);
+
+                //new thread every time because:
+                //1) it does not affect performance much
+                //2) due to bugs in JavaParser there're StackOverflowErrors which
+                //     halt the collection process until I look at it and restart
                 Thread thread = new Thread(() -> {
                     try {
                         List<Method> methods = ProcessRepoUsingSourceRoot(repoPath);
@@ -69,9 +66,6 @@ public class Main {
                 });
                 thread.start();
                 thread.join();
-                if (cnt % 20 == 0) {
-                    System.gc();
-                }
                 deleteDir(new File(repoPath));
                 repo = repoPathProvider.getNext();
             }
@@ -81,21 +75,15 @@ public class Main {
 
     }
 
-    public static void mainCompareProcessFuns(String[] args) throws IOException, SQLException, InterruptedException {
-//        testStupidDotJavaFolderFail();
-//        if (true) return;
-//        testRepoExtract();
-//        if (true) return;
+    private static void mainMeasureSourceRootPerformance(String[] args) throws IOException, SQLException, InterruptedException {
         File dir = new File("/media/jet/HDD/DeepApiJava");
-        List<File> javaFiles = new ArrayList<>();
         List<String> files = Arrays.stream(dir.listFiles()).map(File::getAbsolutePath).collect(Collectors.toList());
-        compareProcessFuns(files);
+        measureSourceRootPerformance(files);
     }
 
-    private static void compareProcessFuns(List<String> repos) {
+    private static void measureSourceRootPerformance(List<String> repos) {
         int seen = 0;
         int seenCp = seen;
-        int badCnt = 0;
         int diffsSum = 0;
         try {
             for (String repo : repos) {
@@ -105,46 +93,23 @@ public class Main {
                 long stopTime = System.currentTimeMillis();
                 long elapsedTime = stopTime - startTime;
 
-                int size = methods.size();
                 long startTime2 = System.currentTimeMillis();
                 methods = ProcessRepoUsingSourceRoot(repo);
                 long stopTime2 = System.currentTimeMillis();
                 long elapsedTime2 = stopTime2 - startTime2;
 
                 long diff = elapsedTime - elapsedTime2;
-//                System.out.println(diff);
                 diffsSum += diff;
 
-                int size1 = methods.size();
                 seen++;
-//                if (size != size1) {
-//                    badCnt++;
-//                    System.out.println("Diff!");
-//                    System.out.println(size);
-//                    System.out.println(size1);
-//                    System.out.println(seen);
-//                    System.out.println();
-//                }
                 if (seen % 10 == 0) {
-//                    System.out.println("!!!");
-//                    System.out.println(badCnt);
                     System.out.println(diffsSum);
-//                    System.out.println();
                 }
             }
         } catch (Exception e) {
             e.printStackTrace();
         }
     }
-
-    private static void testRepoExtract() throws IOException {
-        String repo = "/media/jet/HDD/DeepApiJava/thetonrifles";
-        List<Method> methods = ProcessRepoUsingSourceRoot(repo);
-        System.out.println();
-        List<Method> methods2 = ProcessRepo(repo);
-        System.out.println(methods.size());
-    }
-
 
     private static List<Method> ProcessRepoUsingSourceRoot(String repoPath) throws IOException {
         List<Method> repoMethods = new ArrayList<>();
@@ -198,14 +163,7 @@ public class Main {
 
             for (MethodDeclaration method : methods) {
                 ArrayList<ApiCall> apiCalls = new ArrayList<>();
-//                try {
                 apiSequenceExtractor.visit(method, apiCalls);
-//                } catch (StackOverflowError | OutOfMemoryError e) {// I'm in no mood to debug Javaparser
-//                    System.gc();
-//                    System.out.println("Stack overflowed. Or memory. Deal with it.");
-//                }
-
-//                System.out.println(apiCalls);
                 if (apiCalls.size() == 0) continue;
                 repoMethods.add(new Method(
                         method.getJavadocComment().get().getContent(),
@@ -223,19 +181,6 @@ public class Main {
         System.out.println(repoPath);
         for (File javaFile : javaFiles) {
             if (javaFile.isDirectory()) continue;//yep, there're dirs ending in '.java' E.g. in Wala
-//            if (javaFile.getName().equals(
-//                    "Editor.java")
-//                    || javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/core/java/android/widget/")
-//                    || javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/core/java/com/android/internal/view")
-//                    || javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/core/java/com/android/internal/widget")
-//                    || javaFile.getName().equals("PackageInstaller.java")
-//                    || javaFile.getName().equals("FastScroller.java")
-//                    || javaFile.getName().equals("LauncherApps.java")) {
-//                continue;//stack overflow in java parser. 1gb stack is not enough
-//            }
-//            if (javaFile.getAbsolutePath().startsWith("/media/jet/HDD/DeepApiJava/SlimRoms/frameworks_base/media/java/android/media/AudioManager.java")) {
-//                break;
-//            }
             File rootDir = findProperRootDir(javaFile);
             CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
             combinedTypeSolver.add(new ReflectionTypeSolver());
@@ -269,13 +214,7 @@ public class Main {
 
             for (MethodDeclaration method : methods) {
                 ArrayList<ApiCall> apiCalls = new ArrayList<>();
-//                try {
                 apiSequenceExtractor.visit(method, apiCalls);
-//                } catch (StackOverflowError | OutOfMemoryError e) {// I'm in no mood to debug Javaparser
-//                    System.gc();
-//                    System.out.println("Stack overflowed. Or memory. Deal with it.");
-//                }
-//                System.out.println(apiCalls);
                 if (apiCalls.size() == 0) continue;
                 repoMethods.add(new Method(
                         method.getJavadocComment().get().getContent(),
@@ -287,6 +226,7 @@ public class Main {
         return repoMethods;
     }
 
+    //for easier JavaParser bug tracking
     private static List<Method> ProcessFile(String filePath) throws IOException {
         File javaFile = new File(filePath);
         List<Method> repoMethods = new ArrayList<>();
@@ -317,13 +257,7 @@ public class Main {
         for (MethodDeclaration method : methods) {
             ArrayList<ApiCall> apiCalls = new ArrayList<>();
             System.out.println(method.getName().asString());
-//                try {
             apiSequenceExtractor.visit(method, apiCalls);
-//                } catch (StackOverflowError | OutOfMemoryError e) {// I'm in no mood to debug Javaparser
-//                    System.gc();
-//                    System.out.println("Stack overflowed. Or memory. Deal with it.");
-//                }
-//                System.out.println(apiCalls);
             if (apiCalls.size() == 0) continue;
             repoMethods.add(new Method(
                     method.getJavadocComment().get().getContent(),
@@ -359,20 +293,6 @@ public class Main {
         return folderName == null ? javaFile.getParentFile() : folderName;
     }
 
-    private static List<String> findJavaFilePaths(String path) {
-        File dir = new File(path);
-        List<String> javaFiles = new ArrayList<>();
-        for (File file : dir.listFiles()) {
-            if (file.isDirectory()) {
-                javaFiles.addAll(findJavaFilePaths(file.getAbsolutePath()));
-            }
-            if (file.getName().endsWith(".java")) {
-                javaFiles.add(file.getAbsolutePath());
-            }
-        }
-        return javaFiles;
-    }
-
     private static void deleteDir(File file) {
         File[] contents = file.listFiles();
         if (contents != null) {
@@ -399,26 +319,7 @@ public class Main {
         return javaFiles;
     }
 
-    public static void noSolverMain(String[] args) throws Exception {
-        String javaParserTestMain = "D:\\Users\\Alexander\\Documents\\JavaparserTest\\src\\Main.java";
-        CompilationUnit cu = JavaParser.parse(new FileInputStream(javaParserTestMain));
-
-        ArrayList<MethodDeclaration> methods = new ArrayList<>();
-        MethodCollector methodCollector = new MethodCollector();
-        methodCollector.visit(cu, methods);
-
-        ApiSequenceExtractor apiSequenceExtractor = new ApiSequenceExtractor(null);
-        ArrayList<ApiCall> apiCalls = new ArrayList<>();
-
-        for (MethodDeclaration method : methods) {
-            apiSequenceExtractor.visit(method, apiCalls);
-            System.out.println(apiCalls);
-        }
-    }
-
-
-
-    private static void testStupidDotJavaFolderFail() throws IOException {
+    private static void testFailOnFoldersWithDots() throws IOException {
         Path rootDir = Paths.get("/media/jet/HDD/DeepApiJava/erahal");
         CombinedTypeSolver combinedTypeSolver = new CombinedTypeSolver();
         combinedTypeSolver.add(new ReflectionTypeSolver());
@@ -446,9 +347,10 @@ public class Main {
 
     private static void storeEdingburghJavaDataset() throws SQLException {
         final String datasetPath = "D:\\Users\\Alexander\\Downloads\\java_projects\\java_projects";
-        List<String> dirPaths = Arrays.stream(new File(datasetPath).listFiles()).map(dirFile -> dirFile.getAbsolutePath()).collect(Collectors.toList());
+        List<String> dirPaths = Arrays.stream(new File(datasetPath).listFiles())
+                .map(dirFile -> dirFile.getAbsolutePath())
+                .collect(Collectors.toList());
 
-        String databasePath = "D:\\YandexDisk\\DeepApiJava.sqlite";
         try {
             Class.forName("org.sqlite.JDBC");
         } catch (ClassNotFoundException e) {

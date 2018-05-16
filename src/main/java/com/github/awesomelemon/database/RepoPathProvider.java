@@ -13,28 +13,28 @@ public class RepoPathProvider {
     }
 
     public Pair<String, Integer> getNext() {
-        try {
-            // create a database connection
-            Statement statement = connection.createStatement();
+        try (Statement statement = connection.createStatement()) {
             statement.setQueryTimeout(30);  // set timeout to 30 sec.
 
-            ResultSet resultSet = statement.executeQuery("SELECT id, path from Solution WHERE ProcessedTime ISNULL limit 1");
-            if (!resultSet.isBeforeFirst() ) {
-                resultSet.close();
-                statement.close();
-                connection.commit();
-                return null;//result set is empty
+            try (ResultSet resultSet = statement.executeQuery(
+                    "SELECT id, path FROM Solution WHERE ProcessedTime ISNULL LIMIT 1")) {
+                if (!resultSet.isBeforeFirst()) {
+                    resultSet.close();
+                    return null;//result set is empty
+                }
+                resultSet.next();
+                int id = resultSet.getInt("id");
+                String path = resultSet.getString("path");
+                return new Pair<>(path, id);
             }
-            resultSet.next();
-            int id = resultSet.getInt("id");
-            String path = resultSet.getString("path");
-            resultSet.close();
-            statement.close();
-            connection.commit();
-            return new Pair<>(path, id);
         }
         catch(SQLException e)
         {
+            e.printStackTrace();
+        }
+        try {
+            connection.commit();
+        } catch (SQLException e) {
             e.printStackTrace();
         }
         return null;
